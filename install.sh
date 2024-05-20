@@ -1,18 +1,16 @@
 #!/bin/sh
 
-###################################################################
-#                  A script to install Prometheus                 #
-#     Coded by: Adel Hashem                                       #
-#     Repo:                                                       #
-#     Email: adel.mohamed.9998@gmail.com                          #
-###################################################################
+#####################################################################################
+#                            A script to install Prometheus                         #
+# Coded by: Adel Hashem                                                             #
+# Repo: https://github.com/AdelHashem/Install-Prometheus-Alertmanager-Node_exporter #                                                     #
+# Email: adel.mohamed.9998@gmail.com                                                #
+#####################################################################################
 
-
-
+set -x 
 # Variables
 GITHUB_PROMETHEUS=https://api.github.com/repos/prometheus/prometheus/releases/latest
 GITHUB_ALERTMANAGER=https://api.github.com/repos/prometheus/alertmanager/releases/latest
-PROMETHEUS_TAR=${TMP_DIR}/prometheus.tar.gz
 ROMETHEUS_SERVICE_FILE=/etc/systemd/system/prometheus.service
 ALERTMANAGER_FILE=/etc/systemd/system/alertmanager.service
 
@@ -22,7 +20,7 @@ ALERTMANAGER_FILE=/etc/systemd/system/alertmanager.service
 SetUp() {
     TMP_DIR=$(mktemp -d -t Prometheus-install.XXXXXXXXXX)
     PROMETHEUS_TAR=${TMP_DIR}/prometheus.tar.gz
-
+    ALERTMANAGER_TAR=${TMP_DIR}/alertmanager.tar.gz
     cleanup() {
         code=$?
         INFO "Cleaning up..."
@@ -119,7 +117,7 @@ create_sysem_user() {
         INFO "User ${1} already exists"
     else
         groupadd --system $1
-        useradd --shell /sbin/nologin --system $1
+        useradd --shell /sbin/nologin --system -g $1 $1
     fi
 }
 
@@ -135,14 +133,14 @@ Get_Last_Release() {
 
 # Extract the download URL from the release
 Get_Download_URL() {
-    URL=$(echo -n ${Last_RELEASE} | jq '.assets[] | .browser_download_url | capture("(?<link>.*linux-${ARCH}.*)") | .link')
+    URL=$(echo -n ${Last_RELEASE} | jq --raw-output ".assets[] | .browser_download_url | capture(\"(?<link>.*linux-${ARCH}.*)\") | .link")
     if [ $? -ne 0 ]; then
         exit 1
     fi
 }
 
 Download_From_URL() {
-    curl -L -o ${1} ${URL} || {
+    curl -L -o $1 ${URL} || {
         echo "Failed to download the file"
         exit 1
     }
@@ -189,17 +187,17 @@ install_prometheus() {
     Download_From_URL ${PROMETHEUS_TAR}
     PROMETHEUS_TEMP_DIRE =${TMP_DIR}/$(tar -tf ${PROMETHEUS_TAR} | sed -n "1 p")
     echo $PROMETHEUS_TEMP_DIRE
-    tar -xzf ${PROMETHEUS_TAR}
+    tar -xzf ${PROMETHEUS_TAR} -C ${TMP_DIR}
 
     create_sysem_user prometheus
 
     set -e
     mkdir -p /etc/prometheus /var/lib/prometheus
-    mv ${PROMETHEUS_TEMP_DIRE}/prometheus /usr/local/bin/
-    mv ${PROMETHEUS_TEMP_DIRE}/promtool /usr/local/bin/
-    mv ${PROMETHEUS_TEMP_DIRE}/consoles /etc/prometheus
-    mv ${PROMETHEUS_TEMP_DIRE}/console_libraries /etc/prometheus
-    mv ${PROMETHEUS_TEMP_DIRE}/prometheus.yml /etc/prometheus
+    mv ${PROMETHEUS_TEMP_DIRE}prometheus /usr/local/bin/
+    mv ${PROMETHEUS_TEMP_DIRE}promtool /usr/local/bin/
+    mv ${PROMETHEUS_TEMP_DIRE}consoles /etc/prometheus
+    mv ${PROMETHEUS_TEMP_DIRE}console_libraries /etc/prometheus
+    mv ${PROMETHEUS_TEMP_DIRE}prometheus.yml /etc/prometheus
     chown prometheus:prometheus /usr/local/bin/prometheus
     chown prometheus:prometheus /usr/local/bin/promtool
     chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
@@ -228,13 +226,12 @@ Restart=always
 Type=simple
 User=alertmanager
 Group=alertmanager
-ExecStart=/usr/local/bin/alertmanager/alertmanager \\
+ExecStart=/usr/local/bin/alertmanager \\
           --config.file=/etc/alertmanager/alertmanager.yml \\
           --storage.path=/var/lib/alertmanager/
             
 ExecReload=/bin/kill -HUP $MAINPID
 SyslogIdentifier=alertmanager
-TimeoutStopSec=20s
 Restart=always
 SendSIGKILL=no
 
@@ -243,7 +240,37 @@ WantedBy=multi-user.target
 EOF
 }
 
+# Install AlertManager
+install_alertmanager() {
+    INFO "Installing AlertManager..."
 
+    Get_Last_Release ${GITHUB_ALERTMANAGER}
+    Get_Download_URL
+    Download_From_URL ${ALERTMANAGER_TAR}
+    ALERTMANAGER_TEMP_DIRE=${TMP_DIR}/$(tar -tf ${ALERTMANAGER_TAR} | sed -n "1 p")
+    tar -xzf ${ALERTMANAGER_TAR} -C ${TMP_DIR}
+
+    create_sysem_user alertmanager
+
+    set -e
+    ls -l $ALERTMANAGER_TEMP_DIRE
+    mkdir -p /etc/alertmanager /var/lib/alertmanager
+    mv ${ALERTMANAGER_TEMP_DIRE}alertmanager /usr/local/bin/
+    mv ${ALERTMANAGER_TEMP_DIRE}amtool /usr/local/bin/
+    mv ${ALERTMANAGER_TEMP_DIRE}alertmanager.yml /etc/alertmanager
+    chown alertmanager:alertmanager /usr/local/bin/alertmanager
+    chown alertmanager:alertmanager /usr/local/bin/amtool
+    chown -R alertmanager:alertmanager /etc/alertmanager /var/lib/alertmanager
+    create_systemd_service_file_alertmanager
+    set +e
+
+    INFO "deamon-relaod"
+    systemctl daemon-reload
+    INFO "Enable AlertManager"
+    systemctl enable alertmanager
+    INFO "Start AlertManager"
+    systemctl start alertmanager
+}
 
 # Print INFO messages
 INFO() {
@@ -262,7 +289,7 @@ fi
 Verify_arch
 VerifySys
 SetUp
-install_prometheus
+install_alertmanager
 
 echo done
 exit 0
