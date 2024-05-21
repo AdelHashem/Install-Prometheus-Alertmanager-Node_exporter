@@ -1,4 +1,4 @@
-This repository contains a script which is used to automate the installation of Prometheus on a Linux machine.
+This repository contains a script which is used to automate the installation of Prometheus on a Linux machine. The script install the latest versions
 
 ## Prerequisites
 
