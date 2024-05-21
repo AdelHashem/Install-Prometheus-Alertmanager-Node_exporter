@@ -340,6 +340,7 @@ usage() {
     echo "Options:"
     echo "  --prometheus To install Prometheus"
     echo "  --alertmanager To install alertmanager"
+    echo "--node-exporter To install Node Exporter"
 }
 
 # This script automate Prometheus installation
