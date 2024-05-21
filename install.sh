@@ -12,7 +12,7 @@
 GITHUB_PROMETHEUS=https://api.github.com/repos/prometheus/prometheus/releases/latest
 GITHUB_ALERTMANAGER=https://api.github.com/repos/prometheus/alertmanager/releases/latest
 GITHUB_NODE_EXPORTER=https://api.github.com/repos/prometheus/node_exporter/releases/latest
-ROMETHEUS_SERVICE_FILE=/etc/systemd/system/prometheus.service
+PROMETHEUS_SERVICE_FILE=/etc/systemd/system/prometheus.service
 ALERTMANAGER_FILE=/etc/systemd/system/alertmanager.service
 NODE_EXPORTER_FILE=/etc/systemd/system/node_exporter.service
 
