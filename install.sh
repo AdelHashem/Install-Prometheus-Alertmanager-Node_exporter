@@ -188,8 +188,7 @@ install_prometheus() {
     Get_Last_Release ${GITHUB_PROMETHEUS}
     Get_Download_URL
     Download_From_URL ${PROMETHEUS_TAR}
-    PROMETHEUS_TEMP_DIRE =${TMP_DIR}/$(tar -tf ${PROMETHEUS_TAR} | sed -n "1 p")
-    echo $PROMETHEUS_TEMP_DIRE
+    PROMETHEUS_TEMP_DIRE=${TMP_DIR}/$(tar -tf ${PROMETHEUS_TAR} | sed -n "1 p")
     tar -xzf ${PROMETHEUS_TAR} -C ${TMP_DIR}
 
     create_sysem_user prometheus
