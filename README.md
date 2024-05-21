@@ -2,7 +2,7 @@ This repository contains a script which is used to automate the installation of 
 
 ## Prerequisites
 
-- A Linux machine (Ubuntu, CentOS, etc.)
+- A Linux machine (Ubuntu, CentOS, etc.) with `jq` and `curl` installed
 - User with sudo privileges
 
 ## Usage
