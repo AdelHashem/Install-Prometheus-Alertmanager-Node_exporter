@@ -3,7 +3,7 @@
 #####################################################################################
 #                            A script to install Prometheus                         #
 # Coded by: Adel Hashem                                                             #
-# Repo: https://github.com/AdelHashem/Install-Prometheus-Alertmanager-Node_exporter #                                                     #
+# Repo: https://github.com/AdelHashem/Install-Prometheus-Alertmanager-Node_exporter #
 # Email: adel.mohamed.9998@gmail.com                                                #
 #####################################################################################
 
@@ -11,8 +11,10 @@
 # Variables
 GITHUB_PROMETHEUS=https://api.github.com/repos/prometheus/prometheus/releases/latest
 GITHUB_ALERTMANAGER=https://api.github.com/repos/prometheus/alertmanager/releases/latest
+GITHUB_NODE_EXPORTER=https://api.github.com/repos/prometheus/node_exporter/releases/latest
 ROMETHEUS_SERVICE_FILE=/etc/systemd/system/prometheus.service
 ALERTMANAGER_FILE=/etc/systemd/system/alertmanager.service
+NODE_EXPORTER_FILE=/etc/systemd/system/node_exporter.service
 
 # Functions
 
@@ -21,6 +23,7 @@ SetUp() {
     TMP_DIR=$(mktemp -d -t Prometheus-install.XXXXXXXXXX)
     PROMETHEUS_TAR=${TMP_DIR}/prometheus.tar.gz
     ALERTMANAGER_TAR=${TMP_DIR}/alertmanager.tar.gz
+    NODE_EXPORTER_TAR=${TMP_DIR}/node_exporter.tar.gz
     cleanup() {
         code=$?
         INFO "Cleaning up..."
@@ -178,8 +181,6 @@ WantedBy=multi-user.target
 EOF
 }
 
-
-
 # install prometheus
 install_prometheus() {
     INFO "Installing Prometheus..."
@@ -256,7 +257,6 @@ install_alertmanager() {
     create_sysem_user alertmanager
 
     set -e
-    ls -l $ALERTMANAGER_TEMP_DIRE
     mkdir -p /etc/alertmanager /var/lib/alertmanager
     mv ${ALERTMANAGER_TEMP_DIRE}alertmanager /usr/local/bin/
     mv ${ALERTMANAGER_TEMP_DIRE}amtool /usr/local/bin/
@@ -275,6 +275,60 @@ install_alertmanager() {
     systemctl start alertmanager
 }
 
+# --- Functions For Node_Exporter ---
+# --- write systemd service file for alertmanager ---
+create_systemd_service_file_node_exporter() {
+    INFO "Writing the systemd service for Node Exporter"
+    tee ${NODE_EXPORTER_FILE} >/dev/null << EOF
+[Unit]
+Description=Node Exporter for prometheus
+Documentation=https://prometheus.io/docs/guides/node-exporter/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Restart=always
+Type=simple
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter
+            
+ExecReload=/bin/kill -HUP $MAINPID
+SyslogIdentifier=node_exporter
+Restart=always
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+# Install Node Exporter
+install_node_exporter() {
+    INFO "Installing Node Exporter..."
+
+    Get_Last_Release ${GITHUB_NODE_EXPORTER}
+    Get_Download_URL
+    Download_From_URL ${NODE_EXPORTER_TAR}
+    NODE_EXPORTER_TEMP_DIRE=${TMP_DIR}/$(tar -tf ${NODE_EXPORTER_TAR} | sed -n "1 p")
+    tar -xzf ${NODE_EXPORTER_TAR} -C ${TMP_DIR}
+
+    create_sysem_user node_exporter
+
+    set -e
+    mv ${NODE_EXPORTER_TEMP_DIRE}node_exporter /usr/local/bin/
+    chown node_exporter:node_exporter /usr/local/bin/node_exporter
+    create_systemd_service_file_node_exporter
+    set +e
+    
+    INFO "deamon-relaod"
+    systemctl daemon-reload
+    INFO "Enable Node Exporter"
+    systemctl enable node_exporter
+    INFO "Start Node Exporter"
+    systemctl start node_exporter
+}
+
 # Print INFO messages
 INFO() {
     echo -e "\e[32mINFO: $1\e[0m"
@@ -291,9 +345,13 @@ usage() {
 # This script automate Prometheus installation
 PROMETEHUS=
 ALERTMANAGER=
+NODE_EXPORTER=
 
 # Process the input options
-OPTS=$(getopt --options "" --longoptions 'prometheus,alertmanager,help' -- $@)
+
+if [ -z "$*" ]; then usage; exit 1 ; fi
+
+OPTS=$(getopt --options "" --longoptions 'prometheus,alertmanager,node-exporter,help' -- $@)
 if [ $? != 0 ] ; then usage ; exit 1 ; fi
 eval set -- "$OPTS"
 while [ : ]; do
@@ -306,12 +364,15 @@ case "$1" in
             ALERTMANAGER=1
              shift
             ;;
+        "--node-exporter")
+            NODE_EXPORTER=1
+            shift
+            ;;
         "--help")
             usage
             exit 0
             ;;
         --)
-
             break
             ;;
         *)
@@ -339,6 +400,10 @@ fi
 
 if [ -n "$ALERTMANAGER" ]; then
     install_alertmanager
+fi
+
+if [ -n "$NODE_EXPORTER" ]; then
+    install_node_exporter
 fi
 
 exit 0
