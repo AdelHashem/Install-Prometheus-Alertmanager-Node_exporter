@@ -7,7 +7,7 @@
 # Email: adel.mohamed.9998@gmail.com                                                #
 #####################################################################################
 
-set -x 
+#set -x
 # Variables
 GITHUB_PROMETHEUS=https://api.github.com/repos/prometheus/prometheus/releases/latest
 GITHUB_ALERTMANAGER=https://api.github.com/repos/prometheus/alertmanager/releases/latest
@@ -112,7 +112,7 @@ Verify_arch() {
 
 # Create system user
 create_sysem_user() {
-    INFO "Creating user prometheus..."
+    INFO "Creating user ${1}..."
     if id $1 &>/dev/null; then
         INFO "User ${1} already exists"
     else
@@ -140,6 +140,7 @@ Get_Download_URL() {
 }
 
 Download_From_URL() {
+    INFO "Downloading from ${URL}"
     curl -L -o $1 ${URL} || {
         echo "Failed to download the file"
         exit 1
@@ -149,6 +150,7 @@ Download_From_URL() {
 # --- Functions For Prometheus ---
 # --- write systemd service file for prometheus ---
 create_systemd_service_file_prometheus() {
+    INFO "Writing the systemd service for Prometheus"
     tee ${PROMETHEUS_SERVICE_FILE} >/dev/null << EOF
 [Unit]
 Description=Prometheus
@@ -215,6 +217,7 @@ install_prometheus() {
 # --- Functions for AlertManager
 # --- write systemd service file for alertmanager ---
 create_systemd_service_file_alertmanager() {
+    INFO "Writing the systemd service for Alertmanager"
     tee ${ALERTMANAGER_FILE} >/dev/null << EOF
 [Unit]
 Description=Alertmanager for prometheus
@@ -277,7 +280,47 @@ INFO() {
     echo -e "\e[32mINFO: $1\e[0m"
 }
 
+# usage Function
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  --prometheus To install Prometheus"
+    echo "  --alertmanager To install alertmanager"
+}
+
 # This script automate Prometheus installation
+PROMETEHUS=
+ALERTMANAGER=
+
+# Process the input options
+OPTS=$(getopt --options "" --longoptions 'prometheus,alertmanager,help' -- $@)
+if [ $? != 0 ] ; then usage ; exit 1 ; fi
+eval set -- "$OPTS"
+while [ : ]; do
+case "$1" in
+        --prometheus)
+            PROMETEHUS=1
+             shift
+            ;;
+        --alertmanager)
+            ALERTMANAGER=1
+             shift
+            ;;
+        "--help")
+            usage
+            exit 0
+            ;;
+        --)
+
+            break
+            ;;
+        *)
+            echo "Unrecognized option '$1'"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 # Check if the script is run as root
 if [ ${UID} != 0 ]; then
@@ -289,7 +332,13 @@ fi
 Verify_arch
 VerifySys
 SetUp
-install_alertmanager
 
-echo done
+if [ -n "$PROMETEHUS" ]; then
+    install_prometheus
+fi
+
+if [ -n "$ALERTMANAGER" ]; then
+    install_alertmanager
+fi
+
 exit 0
